@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Conveyor - Stable Standard Edition</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1a1e24;
+    font-family: Arial, sans-serif;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #canvas-container {
+    flex: 1;
+    width: 100%;
+    position: relative;
+    background: #dfe8ee;
+  }
+  #canvas-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  #hint {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    background: rgba(0,0,0,0.6);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    z-index: 5;
+    pointer-events: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .canvas-watermark-center {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(0, 0, 0, 0.28);
+    font-size: 12px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 5;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+    text-align: center;
+  }
+
+  .canvas-watermark-right {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    color: rgba(0, 0, 0, 0.22);
+    font-size: 10px;
+    font-family: monospace;
+    pointer-events: none;
+    z-index: 5;
+    letter-spacing: 1px;
+  }
+
+  #panel {
+    height: auto;
+    max-height: 45vh;
+    background: #111418;
+    color: #fff;
+    padding: 8px 12px;
+    border-top: 2px solid #2196F3;
+    overflow-y: auto;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.5);
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .panel-header h3 {
+    margin: 0;
+    font-size: 13px;
+    color: #2196F3;
+  }
+
+  #statusAlert {
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 11px;
+    background: #1b5e20;
+    color: #81c784;
+    border: 1px solid #4caf50;
+    transition: all 0.3s ease;
+  }
+  #statusAlert.alarm {
+    background: #b71c1c;
+    color: #ff8a80;
+    border: 1px solid #ff5252;
+    animation: blink 0.8s infinite alternate;
+  }
+  @keyframes blink { from { opacity: 1; } to { opacity: 0.4; } }
+
+  .control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .control-group {
+    background: #1a1f26;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid #2a323d;
+  }
+  .control-group label {
+    display: block;
+    font-size: 10px;
+    color: #b0bec5;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .control-group input[type=range] {
+    width: 100%;
+    cursor: pointer;
+    height: 4px;
+  }
+
+  .pulley-section {
+    margin-top: 6px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+  .pulley-section label {
+    display: block;
+    font-size: 10px;
+    color: #58a6ff;
+    margin-bottom: 4px;
+    font-weight: bold;
+  }
+  .pulley-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+  .pulley-btn-grid button {
+    padding: 5px;
+    border: none;
+    border-radius: 4px;
+    background: #238636;
+    color: #fff;
+    font-size: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+  }
+  .pulley-btn-grid button:hover { background: #2ea043; }
+  .pulley-btn-grid button.btn-loosen { background: #da3633; }
+  .pulley-btn-grid button.btn-loosen:hover { background: #f85149; }
+
+  .button-group {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .button-group button {
+    flex: 1;
+    padding: 5px;
+    border: none;
+    border-radius: 4px;
+    background: #2196F3;
+    color: #fff;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+  }
+  .button-group button:hover { background: #1e88e5; }
+  .button-group button.btn-reset-adj { background: #d32f2f; }
+  .button-group button.btn-reset-adj:hover { background: #b71c1c; }
+
+  .guide-container {
+    margin-top: 8px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+  .guide-container h4 {
+    margin: 0 0 4px 0;
+    font-size: 11px;
+    color: #58a6ff;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .guide-list {
+    margin: 0;
+    padding-left: 14px;
+    font-size: 10px;
+    color: #c9d1d9;
+    line-height: 1.4;
+  }
+  .guide-list li {
+    margin-bottom: 2px;
+  }
+  .guide-list strong {
+    color: #f0f6fc;
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-container">
+  <div id="hint">1 jari / Klik Kiri = Putar · Scroll / Pinch = Zoom</div>
+  <div class="canvas-watermark-center">Simulasi Penyetelan Belt<br>Conveyor Dryer</div>
+  <div class="canvas-watermark-right">80723026</div>
+</div>
+
+<div id="panel">
+  <div class="panel-header">
+    <h3>Kontrol Conveyor</h3>
+    <div id="statusAlert">BELT TRACKING: NORMAL</div>
+  </div>
+
+  <div class="control-grid">
+    <div class="control-group">
+      <label>Atas Kiri: <span id="vTopLeft">0</span> mm</label>
+      <input type="range" id="topLeft" min="-15" max="15" step="1" value="0">
+    </div>
+
+    <div class="control-group">
+      <label>Atas Kanan: <span id="vTopRight">0</span> mm</label>
+      <input type="range" id="topRight" min="-15" max="15" step="1" value="0">
+    </div>
+
+    <div class="control-group">
+      <label>Bawah Kiri: <span id="vBtmLeft">0</span> mm</label>
+      <input type="range" id="btmLeft" min="-15" max="15" step="1" value="0">
+    </div>
+
+    <div class="control-group">
+      <label>Bawah Kanan: <span id="vBtmRight">0</span> mm</label>
+      <input type="range" id="btmRight" min="-15" max="15" step="1" value="0">
+    </div>
+  </div>
+
+  <div class="pulley-section">
+    <label>Tail Pulley Adjustment (Skew Angle: <span id="vTailSkew">0</span>° | Shift: <span id="vTailShift">0.00</span> m)</label>
+    <div class="pulley-btn-grid">
+      <button id="btnTightenLeft">Kencangkan Baut Kiri</button>
+      <button id="btnTightenRight">Kencangkan Baut Kanan</button>
+      <button id="btnLoosenLeft" class="btn-loosen">Kendurkan Baut Kiri</button>
+      <button id="btnLoosenRight" class="btn-loosen">Kendurkan Baut Kanan</button>
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button id="resetAdjustment" class="btn-reset-adj">Reset Penyetelan</button>
+    <button id="beltToggle">Belt Conveyor: TAMPIL</button>
+    <button id="reset">Reset Kamera</button>
+  </div>
+
+  <div class="guide-container">
+    <h4>📖 Catatan & Panduan Penyetelan Belt Conveyor:</h4>
+    <ul class="guide-list">
+      <li><strong>Roller Atas:</strong> Jika belt bergeser ke kiri, dorong/putar sisi kiri dudukan roller sedikit ke arah depan (searah jalurnya belt). Sisi yang maju duluan akan mendorong belt kembali ke tengah.</li>
+      <li><strong>Roller Bawah:</strong> Jika belt bagian bawah keluar jalur ke sisi kiri, maka dudukan roller di sisi kiri cukup dimundurkan (ditarik ke belakang) agar sabuk kembali ke tengah.</li>
+      <li><strong>Tail Pulley:</strong> Diatur menggunakan baut penegang (<em>take-up</em>). Jika belt lari ke satu sisi, kencangkan baut di sisi yang sama (atau kendurkan sisi seberangnya) untuk meluruskan jalurnya kembali.</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+if (typeof THREE === 'undefined') {
+  document.body.innerHTML = '<div style="color:#fff;background:#900;padding:16px;text-align:center;">Three.js gagal dimuat. Periksa koneksi internet Anda lalu refresh halaman.</div>';
+} else {
+
+const container = document.getElementById('canvas-container');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe8ee);
+
+const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+container.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(14, 22, 12); 
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0xbcd2e4, 0.35);
+fill.position.set(-12, 8, -10); 
+scene.add(fill);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(140, 140),
+  new THREE.MeshStandardMaterial({ color: 0x9a958a })
+);
+ground.rotation.x = -Math.PI / 2; 
+ground.position.y = -4.6; 
+scene.add(ground);
+
+const IDLER_THETA = 20 * Math.PI / 180; 
+
+const ADJ    = 3;                 
+const PITCH  = 1.6;               
+
+let topLeftVal = 0;   
+let topRightVal = 0;  
+let btmLeftVal = 0;   
+let btmRightVal = 0;  
+let tailSkewAngle = 0;            
+let tailShiftVal = 0;             
+let tailPivotSide = 'left';       
+
+const LEN    = 16;
+const CW     = 1.0;
+const SW     = 0.85;
+const RR     = 0.13;
+const FZ     = 1.75;
+const THK    = 0.035;
+const W      = CW + 2 * SW;
+const HEAD_R = 0.62;
+const TAIL_R = 0.62;
+const HEAD_X = LEN / 2 - 0.75;
+const TAIL_X = -LEN / 2 + 0.70;
+const Y_TOP  = 0.13;
+const Y_BOT  = -1.37;         
+const Y_RET_CUSTOM = -1.18;   
+const FEED_X = TAIL_X + 0.8;
+
+const PINK_ARC_CONFIG = {
+  radiusMultiplier: 1.0, 
+  arcSegments: 32,       
+  startAngleOffset: 0    
+};
+
+const matWhite    = new THREE.MeshStandardMaterial({ color: 0xe8eaec, metalness: 0.25, roughness: 0.55 });
+const matGray     = new THREE.MeshStandardMaterial({ color: 0x9e9e9e, metalness: 0.3,  roughness: 0.5 });
+const matRedRoller= new THREE.MeshStandardMaterial({ color: 0xd32f2f, metalness: 0.35, roughness: 0.45 });
+const matGreen    = new THREE.MeshStandardMaterial({ color: 0x1b7a4b, metalness: 0.5,  roughness: 0.4 });
+const matSteel    = new THREE.MeshStandardMaterial({ color: 0x8f979f, metalness: 0.75, roughness: 0.35 });
+const matBolt     = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.8,  roughness: 0.3 });
+const matAlarm    = new THREE.MeshStandardMaterial({ color: 0xff1744, metalness: 0.5,  roughness: 0.3 });
+const matPoly     = new THREE.MeshStandardMaterial({ color: 0xff6d00, metalness: 0.2,  roughness: 0.4 });
+const matChute    = new THREE.MeshStandardMaterial({ color: 0xe3dac9, metalness: 0.15, roughness: 0.5, side: THREE.DoubleSide });
+const matBeltMid      = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide }); 
+
+const sharedMaterials = [matWhite, matGray, matRedRoller, matGreen, matSteel, matBolt, matAlarm, matPoly, matChute, matBeltMid];
+
+const conveyor = new THREE.Group(); 
+scene.add(conveyor);
+
+const gFrame   = new THREE.Group();
+const gIdler   = new THREE.Group();
+const gBelt    = new THREE.Group();   
+const gPulley  = new THREE.Group();  
+const gBottom  = new THREE.Group();
+const gMark    = new THREE.Group();
+const gChute   = new THREE.Group();
+const gSoil    = new THREE.Group();
+const gScraper = new THREE.Group();
+
+[gFrame, gIdler, gBelt, gPulley, gBottom, gMark, gChute, gSoil, gScraper].forEach(g => conveyor.add(g));
+
+function clear(g) { 
+  while(g.children.length > 0) {
+    const obj = g.children[0];
+    g.remove(obj);
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach(m => { if (!sharedMaterials.includes(m)) m.dispose(); });
+      } else if (!sharedMaterials.includes(obj.material)) {
+        obj.material.dispose();
+      }
+    }
+  }
+}
+
+function makeSmoothGeometry(geo) {
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function createLargeDirectionalArrow(direction) {
+  const grp = new THREE.Group();
+  const color = direction > 0 ? 0x00e676 : 0xff5252; 
+  const shaftGeo = new THREE.BoxGeometry(0.55, 0.08, 0.08);
+  const headGeo = new THREE.ConeGeometry(0.14, 0.32, 10);
+  const mat = new THREE.MeshBasicMaterial({ color });
+
+  const shaft = new THREE.Mesh(shaftGeo, mat);
+  shaft.position.x = direction * 0.22;
+  grp.add(shaft);
+
+  const head = new THREE.Mesh(headGeo, mat);
+  head.rotation.z = direction > 0 ? -Math.PI / 2 : Math.PI / 2;
+  head.position.x = direction * 0.52;
+  grp.add(head);
+
+  return grp;
+}
+
+function makeDashedLine(pts, color) {
+  const grp = new THREE.Group();
+  const dir = new THREE.Vector3().subVectors(pts[1], pts[0]);
+  const len = dir.length();
+  if (len < 0.001) return grp;
+
+  dir.normalize();
+  const g = new THREE.BufferGeometry().setFromPoints(pts);
+  const m = new THREE.LineDashedMaterial({ color, dashSize: 0.3, gapSize: 0.15 });
+  const l = new THREE.Line(g, m);
+  l.computeLineDistances();
+  grp.add(l);
+  
+  const mid = new THREE.Vector3().addVectors(pts[0], pts[1]).multiplyScalar(0.5);
+  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 6), new THREE.MeshBasicMaterial({ color }));
+  arrow.position.copy(mid);
+  arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  grp.add(arrow);
+  return grp;
+}
+
+function attachTopIndividualArrows(parentGroup, leftVal, rightVal) {
+  const arrowGrp = new THREE.Group();
+  arrowGrp.name = "adjustmentArrowsTopIndiv";
+  const zPos = FZ + 0.65;
+  const yPos = 0.15;
+
+  if (Math.abs(leftVal) >= 0.5) {
+    const leftDir = Math.sign(leftVal); 
+    const leftArrow = createLargeDirectionalArrow(leftDir);
+    leftArrow.position.set(0, yPos, -zPos);
+    arrowGrp.add(leftArrow);
+  }
+
+  if (Math.abs(rightVal) >= 0.5) {
+    const rightDir = Math.sign(rightVal);
+    const rightArrow = createLargeDirectionalArrow(rightDir);
+    rightArrow.position.set(0, yPos, zPos);
+    arrowGrp.add(rightArrow);
+  }
+  parentGroup.add(arrowGrp);
+}
+
+function attachBottomIndividualArrows(parentGroup, leftVal, rightVal) {
+  const arrowGrp = new THREE.Group();
+  arrowGrp.name = "adjustmentArrowsBtmIndiv";
+  const zPos = FZ + 0.65;
+  const yPos = 0.0;
+
+  if (Math.abs(leftVal) >= 0.5) {
+    const leftDir = -Math.sign(leftVal); 
+    const leftArrow = createLargeDirectionalArrow(leftDir);
+    leftArrow.position.set(0, yPos, -zPos);
+    arrowGrp.add(leftArrow);
+  }
+
+  if (Math.abs(rightVal) >= 0.5) {
+    const rightDir = -Math.sign(rightVal);
+    const rightArrow = createLargeDirectionalArrow(rightDir);
+    rightArrow.position.set(0, yPos, zPos);
+    arrowGrp.add(rightArrow);
+  }
+  parentGroup.add(arrowGrp);
+}
+
+function makeSidePulleyLabel(x, y, r, labelText, mainColorHex, isRightSide = true) {
+  const grp = new THREE.Group();
+  const offsetZ = FZ + 1.2;
+  const labelY  = y + 1.1;
+
+  const cv = document.createElement('canvas');
+  cv.width = 380; cv.height = 140;
+  const cx = cv.getContext('2d');
+  const mainColor = '#' + mainColorHex.toString(16).padStart(6, '0');
+
+  cx.fillStyle = 'rgba(15, 20, 28, 0.92)';
+  cx.beginPath();
+  cx.roundRect(15, 15, 350, 80, 16);
+  cx.fill();
+
+  cx.strokeStyle = mainColor;
+  cx.lineWidth = 5;
+  cx.stroke();
+
+  cx.fillStyle = mainColor;
+  cx.beginPath();
+  if (isRightSide) {
+    cx.moveTo(15, 55); cx.lineTo(-10, 55); cx.lineTo(15, 35);
+  } else {
+    cx.moveTo(365, 55); cx.lineTo(390, 55); cx.lineTo(365, 35);
+  }
+  cx.closePath();
+  cx.fill();
+
+  cx.font = '900 36px Arial, sans-serif';
+  cx.fillStyle = '#ffffff';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillText(labelText, 190, 55);
+
+  const tex = new THREE.CanvasTexture(cv);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sprite.scale.set(3.2, 1.18, 1);
+  sprite.position.set(x, labelY, offsetZ);
+  grp.add(sprite);
+
+  const arrowGroup = new THREE.Group();
+  const lineGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x, labelY - 0.2, offsetZ - 0.2),
+    new THREE.Vector3(x, y, 0)
+  ]);
+  const lineMat = new THREE.LineDashedMaterial({ color: mainColorHex, dashSize: 0.2, gapSize: 0.1 });
+  const line = new THREE.Line(lineGeo, lineMat);
+  line.computeLineDistances();
+  arrowGroup.add(line);
+
+  const coneGeo = new THREE.ConeGeometry(0.12, 0.4, 12);
+  const coneMat = new THREE.MeshBasicMaterial({ color: mainColorHex });
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+  const pTarget = new THREE.Vector3(x, y, 0);
+  const dir = new THREE.Vector3().subVectors(pTarget, new THREE.Vector3(x, labelY - 0.2, offsetZ - 0.2)).normalize();
+
+  cone.position.copy(pTarget);
+  cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  arrowGroup.add(cone);
+  grp.add(arrowGroup);
+
+  return grp;
+}
+
+let frameMeshes = [];
+
+function buildFrame() {
+  clear(gFrame);
+  frameMeshes = [];
+
+  [-1, 1].forEach(s => {
+    const top = new THREE.Mesh(new THREE.BoxGeometry(LEN, 0.16, 0.16), matWhite);
+    top.position.set(0, -0.62, s * FZ); gFrame.add(top); frameMeshes.push(top);
+    const bot = new THREE.Mesh(new THREE.BoxGeometry(LEN, 0.16, 0.16), matWhite);
+    bot.position.set(0, Y_BOT, s * FZ); gFrame.add(bot); frameMeshes.push(bot);
+  });
+
+  for(let x = -LEN/2 + 1; x <= LEN/2 - 1; x += 2.4) {
+    [-1, 1].forEach(s => {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.25, 0.14), matWhite);
+      post.position.set(x, -1.74, s * FZ); gFrame.add(post); frameMeshes.push(post);
+      
+      const diag = new THREE.Mesh(new THREE.BoxGeometry(0.10, 2.45, 0.10), matWhite);
+      diag.position.set(x + 1.2, -1.74, s * FZ); diag.rotation.z = s * 0.5; gFrame.add(diag); frameMeshes.push(diag);
+      
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.17, 1.2, 0.17), matWhite);
+      leg.position.set(x, -3.45, s * FZ); gFrame.add(leg);
+      
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.09, 0.62), matSteel);
+      foot.position.set(x, -4.09, s * FZ); gFrame.add(foot);
+    });
+    const cross = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, FZ * 2), matWhite);
+    cross.position.set(x, Y_BOT, 0); gFrame.add(cross); frameMeshes.push(cross);
+  }
+
+  [-1, 1].forEach(s => {
+    const frameZ = s * FZ;
+    const frameY = Y_TOP - TAIL_R;
+
+    const slideFrame = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.12), matSteel);
+    slideFrame.position.set(TAIL_X - 0.2, frameY - 0.22, frameZ);
+    gFrame.add(slideFrame);
+
+    const thrustBlock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.25), matWhite);
+    thrustBlock.position.set(TAIL_X - 1.25, frameY, frameZ);
+    gFrame.add(thrustBlock);
+
+    const screwRod = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.2, 16), matBolt);
+    screwRod.rotation.z = Math.PI / 2;
+    screwRod.position.set(TAIL_X - 0.65, frameY, frameZ);
+    gFrame.add(screwRod);
+
+    const hexHead = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.15, 6), matBolt);
+    hexHead.rotation.z = Math.PI / 2;
+    hexHead.position.set(TAIL_X - 1.33, frameY, frameZ);
+    gFrame.add(hexHead);
+  });
+}
+
+function getTroughProfilePoints() {
+  const currentTheta = IDLER_THETA; 
+  const zc = CW / 2;
+  const A = { z: -(zc + SW * Math.cos(currentTheta)), y: SW * Math.sin(currentTheta) };
+  const B = { z: -zc, y: 0 };
+  const C = { z: zc, y: 0 };
+  const D = { z: zc + SW * Math.cos(currentTheta), y: SW * Math.sin(currentTheta) };
+  const rd = Math.min(0.26, SW * 0.3, CW * 0.3);
+
+  const dirBA = { z: A.z - B.z, y: A.y - B.y }, lBA = Math.hypot(dirBA.z, dirBA.y) || 1;
+  const B1 = { z: B.z + dirBA.z / lBA * rd, y: B.y + dirBA.y / lBA * rd };
+  const B2 = { z: B.z + rd, y: 0 };
+
+  const dirCD = { z: D.z - C.z, y: D.y - C.y }, lCD = Math.hypot(dirCD.z, dirCD.y) || 1;
+  const C1 = { z: C.z - rd, y: 0 };
+  const C2 = { z: C.z + dirCD.z / lCD * rd, y: C.y + dirCD.y / lCD * rd };
+
+  function bezier(p0, p1, p2, n) {
+    const out = [];
+    for(let i = 1; i < n; i++) {
+      const u = i / n, m = 1 - u;
+      out.push({ z: m*m*p0.z + 2*m*u*p1.z + u*u*p2.z, y: m*m*p0.y + 2*m*u*p1.y + u*u*p2.y });
+    }
+    return out;
+  }
+
+  let p = [A, B1];
+  p = p.concat(bezier(B1, B, B2, 7));
+  p.push(B2, C1);
+  p = p.concat(bezier(C1, C, C2, 7));
+  p.push(C2, D);
+  return p;
+}
+
+function getFlatProfilePoints() {
+  const halfW = W / 2;
+  const pts = [];
+  const steps = 20;
+  for (let i = 0; i <= steps; i++) {
+    const z = -halfW + (i / steps) * W;
+    pts.push({ z: z, y: 0 });
+  }
+  return pts;
+}
+
+function createMorphingBeltGeometry() {
+  const slices = 140;
+  const troughPts = getTroughProfilePoints();
+  const flatPts = getFlatProfilePoints();
+  const numPts = troughPts.length;
+
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+
+  const actualTailX = TAIL_X + tailShiftVal;
+  const tailMatchX = actualTailX + TAIL_R * Math.cos(Math.PI / 2);
+  const tailMatchY = (Y_TOP - TAIL_R) + TAIL_R;
+  const headMatchX = HEAD_X + HEAD_R * Math.cos(Math.PI / 2);
+  const headMatchY = (Y_TOP - HEAD_R) + HEAD_R;
+
+  for (let i = 0; i <= slices; i++) {
+    const f = i / slices;
+    let x, y, morphFactor;
+
+    if (f <= 0.12) {
+      const u = f / 0.12;
+      x = tailMatchX + u * (actualTailX + 1.4 - tailMatchX); 
+      y = tailMatchY + u * (Y_TOP - tailMatchY);
+      morphFactor = Math.sin(u * Math.PI / 2); 
+    } 
+    else if (f >= 0.88) {
+      const u = (f - 0.88) / 0.12;
+      const startTransX = HEAD_X - 1.45;
+      x = startTransX + u * (headMatchX - startTransX);
+      y = Y_TOP + u * (headMatchY - Y_TOP);
+      morphFactor = Math.cos(u * Math.PI / 2); 
+    } 
+    else {
+      const u = (f - 0.12) / 0.76;
+      const startX = actualTailX + 1.4;
+      const endX = HEAD_X - 1.45;
+      x = startX + u * (endX - startX);
+      y = Y_TOP;
+      morphFactor = 1.0; 
+    }
+
+    const v = f;
+    for (let j = 0; j < numPts; j++) {
+      const tPt = troughPts[j];
+      const fPt = { z: -W/2 + (j / (numPts - 1)) * W, y: 0 }; 
+
+      const currentZ = fPt.z * (1 - morphFactor) + tPt.z * morphFactor;
+      const currentY = fPt.y * (1 - morphFactor) + tPt.y * morphFactor;
+
+      positions.push(x, y + currentY, currentZ);
+      uvs.push(j / (numPts - 1), v);
+    }
+  }
+
+  for (let i = 0; i < slices; i++) {
+    for (let j = 0; j < numPts - 1; j++) {
+      const a = i * numPts + j;
+      const b = (i + 1) * numPts + j;
+      const c = i * numPts + (j + 1);
+      const d = (i + 1) * numPts + (j + 1);
+
+      indices.push(a, c, b);
+      indices.push(b, c, d);
+    }
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+  return geom;
+}
+
+function profilFlat() {
+  const halfW = W / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(-halfW, THK / 2);
+  shape.lineTo(halfW, THK / 2);
+  shape.lineTo(halfW, -THK / 2);
+  shape.lineTo(-halfW, -THK / 2);
+  shape.closePath();
+  return shape;
+}
+
+function mergeGeometries(geometries) {
+  let totalVertexCount = 0;
+  let totalIndexCount = 0;
+
+  geometries.forEach(g => {
+    totalVertexCount += g.attributes.position.count;
+    totalIndexCount += g.index ? g.index.count : g.attributes.position.count;
+  });
+
+  const positionArray = new Float32Array(totalVertexCount * 3);
+  const normalArray = new Float32Array(totalVertexCount * 3);
+  const uvArray = new Float32Array(totalVertexCount * 2);
+  const indexArray = new Uint32Array(totalIndexCount);
+
+  let vertexOffset = 0;
+  let indexOffset = 0;
+  let vertexIndexOffset = 0;
+
+  geometries.forEach(g => {
+    const pos = g.attributes.position.array;
+    const norm = g.attributes.normal ? g.attributes.normal.array : null;
+    const uv = g.attributes.uv ? g.attributes.uv.array : null;
+    const index = g.index ? g.index.array : null;
+
+    positionArray.set(pos, vertexOffset * 3);
+    if (norm) normalArray.set(norm, vertexOffset * 3);
+    if (uv) uvArray.set(uv, vertexOffset * 2);
+
+    if (index) {
+      for (let i = 0; i < index.length; i++) {
+        indexArray[indexOffset + i] = index[i] + vertexIndexOffset;
+      }
+      indexOffset += index.length;
+    } else {
+      const count = g.attributes.position.count;
+      for (let i = 0; i < count; i++) {
+        indexArray[indexOffset + i] = i + vertexIndexOffset;
+      }
+      indexOffset += count;
+    }
+
+    vertexIndexOffset += g.attributes.position.count;
+    vertexOffset += g.attributes.position.count;
+  });
+
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+  merged.setIndex(new THREE.BufferAttribute(indexArray, 1));
+  return merged;
+}
+
+function buatSmoothSegmentedBeltLoop() {
+  const effectiveHeadR = HEAD_R * PINK_ARC_CONFIG.radiusMultiplier;
+  const effectiveTailR = TAIL_R * PINK_ARC_CONFIG.radiusMultiplier;
+  const wrapHeadR = effectiveHeadR + THK;
+  const wrapTailR = effectiveTailR + THK;
+  
+  const hCY   = Y_TOP - effectiveHeadR;
+  const tCY   = Y_TOP - effectiveTailR;
+  const yRet  = Y_BOT + 0.2; 
+
+  const beltGroup = new THREE.Group();
+  const arcN = PINK_ARC_CONFIG.arcSegments;
+  const angleTrim = 0.015; 
+
+  const actualTailX = TAIL_X + tailShiftVal;
+  const pTailArc = [];
+  for(let i = 0; i <= arcN; i++) {
+    const t = i / arcN;
+    const a = -Math.PI / 2 - (t * (Math.PI - 2 * angleTrim) + angleTrim) + PINK_ARC_CONFIG.startAngleOffset;
+    pTailArc.push(new THREE.Vector3(actualTailX + wrapTailR * Math.cos(a), tCY + wrapTailR * Math.sin(a), 0));
+  }
+  const gTailArc = makeSmoothGeometry(new THREE.ExtrudeGeometry(profilFlat(), { steps: arcN, bevelEnabled: false, extrudePath: new THREE.CatmullRomCurve3(pTailArc) }));
+
+  const gCarry = createMorphingBeltGeometry();
+
+  const pHeadArc = [];
+  for(let i = 0; i <= arcN; i++) {
+    const t = i / arcN;
+    const a = Math.PI / 2 - (t * (Math.PI - 2 * angleTrim) + angleTrim) + PINK_ARC_CONFIG.startAngleOffset;
+    pHeadArc.push(new THREE.Vector3(HEAD_X + wrapHeadR * Math.cos(a), hCY + wrapHeadR * Math.sin(a), 0));
+  }
+  const gHeadArc = makeSmoothGeometry(new THREE.ExtrudeGeometry(profilFlat(), { steps: arcN, bevelEnabled: false, extrudePath: new THREE.CatmullRomCurve3(pHeadArc) }));
+
+  const pRet = [new THREE.Vector3(HEAD_X, yRet, 0), new THREE.Vector3(actualTailX, yRet, 0)];
+  const gRet = makeSmoothGeometry(new THREE.ExtrudeGeometry(profilFlat(), { steps: 30, bevelEnabled: false, extrudePath: new THREE.CatmullRomCurve3(pRet) }));
+
+  const mergedGeo = mergeGeometries([gTailArc, gCarry, gHeadArc, gRet]);
+  const singleBeltMesh = new THREE.Mesh(mergedGeo, matBeltMid);
+  singleBeltMesh.name = "mainBeltSegment";
+  beltGroup.add(singleBeltMesh);
+
+  clear(gMark);
+  const leftZ = -FZ - 0.25;   
+  const rightZ = FZ + 0.25;  
+
+  gMark.add(makeDashedLine([new THREE.Vector3(actualTailX, Y_TOP, leftZ), new THREE.Vector3(HEAD_X, Y_TOP, leftZ)], 0xff3333));
+  gMark.add(makeDashedLine([new THREE.Vector3(HEAD_X, yRet, leftZ), new THREE.Vector3(actualTailX, yRet, leftZ)], 0xff3333));
+  gMark.add(makeDashedLine([new THREE.Vector3(HEAD_X, Y_TOP, leftZ), new THREE.Vector3(HEAD_X, yRet, leftZ)], 0xffaa00));
+  gMark.add(makeDashedLine([new THREE.Vector3(actualTailX, Y_TOP, leftZ), new THREE.Vector3(actualTailX, yRet, leftZ)], 0xffaa00));
+
+  gMark.add(makeDashedLine([new THREE.Vector3(actualTailX, Y_TOP, rightZ), new THREE.Vector3(HEAD_X, Y_TOP, rightZ)], 0xff3333));
+  gMark.add(makeDashedLine([new THREE.Vector3(HEAD_X, yRet, rightZ), new THREE.Vector3(actualTailX, yRet, rightZ)], 0xff3333));
+  gMark.add(makeDashedLine([new THREE.Vector3(HEAD_X, Y_TOP, rightZ), new THREE.Vector3(HEAD_X, yRet, rightZ)], 0xffaa00));
+  gMark.add(makeDashedLine([new THREE.Vector3(actualTailX, Y_TOP, rightZ), new THREE.Vector3(actualTailX, Y_TOP, rightZ)], 0xffaa00));
+
+  return beltGroup;
+}
+
+function rollerMesh(len, customMat = matGray) {
+  const g = new THREE.Group();
+  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(RR, RR, len, 16), customMat);
+  cyl.rotation.z = Math.PI / 2;
+  g.add(cyl);
+
+  [-1, 1].forEach(s => {
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(RR * 0.55, RR * 0.55, 0.09, 10), matSteel);
+    cap.rotation.z = Math.PI / 2; cap.position.x = s * (len / 2 + 0.04);
+    g.add(cap);
+  });
+  return g;
+}
+
+function buildIdlers(t, adj, pitch) {
+  clear(gIdler);
+  const zc = CW / 2;
+  const dy = adj * 0.012;
+
+  const startX = TAIL_X + 1.4; 
+  const endX   = HEAD_X - 1.45;
+  const totalIdlers = Math.floor((endX - startX) / pitch);
+  const trackingIndex = Math.floor(totalIdlers / 2); 
+
+  let count = 0;
+  for(let x = startX; x <= endX; x += pitch) {
+    if (Math.abs(x - FEED_X) < 0.1) { count++; continue; }
+
+    const set = new THREE.Group();
+    set.position.set(x, dy, 0);
+    const isTrackingRoller = (count === trackingIndex);
+
+    let computedYaw = 0;
+    if (isTrackingRoller) {
+      const diffMm = topRightVal - topLeftVal; 
+      computedYaw = (diffMm * 0.015); 
+      set.rotation.y = computedYaw;
+    }
+
+    const baseMat = isTrackingRoller ? matRedRoller : matWhite;
+    const rollerMat = isTrackingRoller ? matRedRoller : matGray;
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, FZ * 2 - 0.2), baseMat);
+    base.position.y = -0.52; set.add(base);
+
+    if (isTrackingRoller) {
+      const pivotPin = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.25, 12), matSteel);
+      pivotPin.position.set(0, -0.68, 0); set.add(pivotPin);
+      attachTopIndividualArrows(set, topLeftVal, topRightVal);
+    }
+
+    const mid = rollerMesh(CW, rollerMat);
+    mid.rotation.y = Math.PI / 2; mid.position.y = -RR; set.add(mid);
+
+    [1, -1].forEach(s => {
+      const arm = new THREE.Group();
+      arm.position.set(0, 0, s * zc); arm.rotation.x = -s * t;
+      const roll = rollerMesh(SW, rollerMat);
+      roll.rotation.y = Math.PI / 2; roll.position.set(0, -RR, s * (SW / 2)); arm.add(roll);
+
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.34, 0.7), baseMat);
+      plate.position.set(0, -0.3, s * (SW / 2)); arm.add(plate);
+
+      [0.22, 0.52].forEach(f => {
+        const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.13, 8), matBolt);
+        bolt.rotation.z = Math.PI / 2; bolt.position.set(0, -0.3, s * SW * f); arm.add(bolt);
+      });
+      set.add(arm);
+
+      const brk = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.42, 0.1), baseMat);
+      brk.position.set(0, -0.31, s * (zc + 0.06)); set.add(brk);
+    });
+
+    gIdler.add(set);
+    count++;
+  }
+}
+
+function buildBottom(pitch) {
+  clear(gBottom);
+  let n = 0;
+  const startX = -LEN / 2 + 2.0;
+  const endX   = LEN / 2 - 2.0;
+  const totalBottom = Math.floor((endX - startX) / (pitch * 2));
+  const btmTrackingIndex = Math.floor(totalBottom / 2);
+
+  for(let x = startX; x <= endX; x += pitch * 2) {
+    const isBtmTrackingRoller = (n === btmTrackingIndex);
+    const rGrp = new THREE.Group();
+    rGrp.position.set(x, Y_RET_CUSTOM - RR - THK, 0);
+
+    let computedBtmYaw = 0;
+    if (isBtmTrackingRoller) {
+      const diffBtmMm = btmRightVal - btmLeftVal;
+      computedBtmYaw = (diffBtmMm * 0.015);
+      rGrp.rotation.y = -computedBtmYaw; 
+    }
+
+    const rollerMat = isBtmTrackingRoller ? matRedRoller : matGray;
+    const r = rollerMesh(W, rollerMat);
+    r.rotation.y = Math.PI / 2; rGrp.add(r); 
+
+    if (isBtmTrackingRoller) {
+      attachBottomIndividualArrows(rGrp, btmLeftVal, btmRightVal);
+    }
+
+    gBottom.add(rGrp);
+
+    [-1, 1].forEach(s => {
+      const h = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.55, 0.09), isBtmTrackingRoller ? matRedRoller : matWhite);
+      h.position.set(x, Y_RET_CUSTOM - 0.25, s * (W / 2 + 0.08)); gBottom.add(h);
+    });
+
+    if (n % 2 === 0) {
+      const bed = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.09, W + 0.25), matWhite);
+      bed.position.set(x, Y_RET_CUSTOM - 0.55, 0); gBottom.add(bed);
+      [1, -1].forEach(s => {
+        const gr = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.42, 10), matGray);
+        gr.position.set(x, Y_RET_CUSTOM - 0.2, s * (W / 2 + 0.12)); gBottom.add(gr);
+      });
+    }
+    n++;
+  }
+}
+
+function buildPulley() {
+  clear(gPulley);
+
+  const hp = new THREE.Group();
+  hp.position.set(HEAD_X, Y_TOP - HEAD_R, 0);
+  
+  const hc = new THREE.Mesh(new THREE.CylinderGeometry(HEAD_R, HEAD_R, W, 24), matGreen);
+  hc.rotation.x = Math.PI / 2; hp.add(hc);
+  
+  const hs = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, W + 0.7, 12), matSteel);
+  hs.rotation.x = Math.PI / 2; hp.add(hs);
+
+  [-1, 1].forEach(s => {
+    const brg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.34, 0.22), matSteel);
+    brg.position.set(0, 0, s * (W / 2 + 0.24)); hp.add(brg);
+  });
+  gPulley.add(hp);
+  conveyor.userData.headPulley = hp;
+
+  [-1, 1].forEach(s => {
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.35, 0.07), matRedRoller);
+    guard.position.set(HEAD_X, Y_TOP - HEAD_R, s * (W / 2 + 0.42)); gPulley.add(guard);
+  });
+
+  const tp = new THREE.Group();
+  tp.name = "tailPulleyGroup";
+  tp.position.set(TAIL_X, Y_TOP - TAIL_R, 0);
+  
+  const tpCore = new THREE.Group(); 
+  tpCore.name = "tailCore";
+  
+  const tc = new THREE.Mesh(new THREE.CylinderGeometry(TAIL_R, TAIL_R, W, 24), matGray);
+  tc.rotation.x = Math.PI / 2; tpCore.add(tc);
+  
+  const ts = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, W + 1.2, 12), matSteel);
+  ts.rotation.x = Math.PI / 2; tpCore.add(ts);
+  tp.add(tpCore);
+
+  [-1, 1].forEach(s => {
+    const frameZ = s * FZ;
+    const blockGroup = new THREE.Group();
+    blockGroup.name = s > 0 ? "blockLeft" : "blockRight";
+
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.22), matSteel);
+    blockGroup.add(block);
+
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.24, 12), matBolt);
+    cap.rotation.x = Math.PI / 2;
+    blockGroup.add(cap);
+
+    const pushPlate = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.32, 0.24), matBolt);
+    pushPlate.position.set(-0.21, 0, 0); 
+    blockGroup.add(pushPlate);
+
+    blockGroup.position.set(0, 0, frameZ);
+    tp.add(blockGroup);
+  });
+
+  gPulley.add(tp);
+  conveyor.userData.tailPulley = tp;
+
+  gMark.add(makeSidePulleyLabel(HEAD_X, Y_TOP - HEAD_R, HEAD_R, 'HEAD PULLEY', 0xff3333, true));
+  gMark.add(makeSidePulleyLabel(TAIL_X, Y_TOP - TAIL_R, TAIL_R, 'TAIL PULLEY', 0x00e676, false));
+}
+
+// Fungsi khusus pengencangan baut (maju)
+function updateTailTighten() {
+  if (!conveyor.userData.tailPulley) return;
+  const tp = conveyor.userData.tailPulley;
+  const core = tp.getObjectByName("tailCore");
+  const blockL = tp.getObjectByName("blockLeft");
+  const blockR = tp.getObjectByName("blockRight");
+
+  const rad = (tailSkewAngle * Math.PI) / 180;
+  const span = W + 0.4;
+  
+  let xLeft = tailShiftVal;
+  let xRight = tailShiftVal;
+
+  if (tailPivotSide === 'left') {
+    xLeft = tailShiftVal;
+    xRight = tailShiftVal - Math.sin(rad) * span;
+  } else {
+    xRight = tailShiftVal;
+    xLeft = tailShiftVal + Math.sin(rad) * span;
+  }
+
+  tailShiftVal = Math.max(-0.25, Math.min(0.0, tailShiftVal));
+  tp.position.x = TAIL_X; 
+
+  if (blockL) blockL.position.x = xLeft;
+  if (blockR) blockR.position.x = xRight;
+
+  if (core) {
+    core.position.x = (xLeft + xRight) / 2;
+    core.rotation.y = rad;                  
+  }
+}
+
+// Fungsi terpisah khusus pengenduran baut (mundur) tanpa tembus belt
+function updateTailLoosen() {
+  if (!conveyor.userData.tailPulley) return;
+  const tp = conveyor.userData.tailPulley;
+  const core = tp.getObjectByName("tailCore");
+  const blockL = tp.getObjectByName("blockLeft");
+  const blockR = tp.getObjectByName("blockRight");
+
+  const rad = (tailSkewAngle * Math.PI) / 180;
+  const span = W + 0.4;
+  
+  let xLeft = tailShiftVal;
+  let xRight = tailShiftVal;
+
+  if (tailPivotSide === 'left') {
+    xLeft = tailShiftVal;
+    xRight = tailShiftVal + Math.sin(rad) * span;
+  } else {
+    xRight = tailShiftVal;
+    xLeft = tailShiftVal - Math.sin(rad) * span;
+  }
+
+  tailShiftVal = Math.max(0.0, Math.min(0.35, tailShiftVal));
+  tp.position.x = TAIL_X; 
+
+  if (blockL) blockL.position.x = xLeft;
+  if (blockR) blockR.position.x = xRight;
+
+  if (core) {
+    core.position.x = (xLeft + xRight) / 2;
+    core.rotation.y = rad; 
+  }
+}
+
+function buildFeedChute() {
+  clear(gChute);
+
+  const chuteGeo = new THREE.CylinderGeometry(1.3, 0.85, 1.8, 4, 1, true);
+  const chuteMesh = new THREE.Mesh(chuteGeo, matChute);
+  chuteMesh.rotation.y = Math.PI / 4;
+  chuteMesh.position.set(FEED_X, Y_TOP + 1.3, 0);
+  gChute.add(chuteMesh);
+
+  [-1, 1].forEach(s => {
+    const skirt = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.45, 0.04), matChute);
+    skirt.position.set(FEED_X + 0.4, Y_TOP + 0.2, s * (CW / 2 + 0.15)); 
+    gChute.add(skirt);
+  });
+
+  const cvLabel = document.createElement('canvas');
+  cvLabel.width = 256; cvLabel.height = 90;
+  const cxLabel = cvLabel.getContext('2d');
+  
+  cxLabel.fillStyle = 'rgba(20, 25, 30, 0.85)';
+  cxLabel.beginPath();
+  cxLabel.roundRect(10, 10, 236, 70, 15);
+  cxLabel.fill();
+  
+  cxLabel.strokeStyle = '#e3dac9';
+  cxLabel.lineWidth = 4;
+  cxLabel.stroke();
+
+  cxLabel.font = 'bold 38px Arial';
+  cxLabel.fillStyle = '#f5ecd7';
+  cxLabel.textAlign = 'center';
+  cxLabel.textBaseline = 'middle';
+  cxLabel.fillText('CHUTE', 128, 45);
+
+  const texLabel = new THREE.CanvasTexture(cvLabel);
+  const labelSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texLabel, transparent: true }));
+  labelSprite.scale.set(2.2, 0.77, 1);
+  labelSprite.position.set(FEED_X, Y_TOP + 2.7, 0); 
+  gChute.add(labelSprite);
+}
+
+function buildSecondaryScraper() {
+  clear(gScraper);
+  const scraperX = HEAD_X - 0.2;
+  const scraperY = Y_TOP - (HEAD_R * 2) - 0.15;
+
+  const mainShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, W + 0.8, 12), matSteel);
+  mainShaft.rotation.x = Math.PI / 2;
+  mainShaft.position.set(scraperX, scraperY, 0);
+  gScraper.add(mainShaft);
+
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.35, W - 0.1), matPoly);
+  blade.position.set(scraperX + 0.1, scraperY + 0.18, 0);
+  blade.rotation.z = -0.3;
+  gScraper.add(blade);
+
+  [-1, 1].forEach(s => {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.25, 0.06), matSteel);
+    arm.position.set(scraperX + 0.05, scraperY + 0.1, s * (W / 2 + 0.05));
+    gScraper.add(arm);
+
+    const springHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.3, 10), matRedRoller);
+    springHousing.position.set(scraperX, scraperY - 0.15, s * (W / 2 + 0.22));
+    gScraper.add(springHousing);
+
+    const springCoil = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 16), matSteel);
+    springCoil.position.set(scraperX, scraperY - 0.15, s * (W / 2 + 0.22));
+    gScraper.add(springCoil);
+
+    const mountBrk = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.12), matWhite);
+    mountBrk.position.set(scraperX, scraperY - 0.3, s * (W / 2 + 0.22));
+    gScraper.add(mountBrk);
+  });
+}
+
+const particleCount = 7500;
+const soilGeo = new THREE.BufferGeometry();
+const positions = new Float32Array(particleCount * 3);
+const scales = new Float32Array(particleCount);
+const vx = new Float32Array(particleCount);
+const vy = new Float32Array(particleCount);
+const vz = new Float32Array(particleCount); 
+const isSpilled = new Uint8Array(particleCount); 
+
+function createCrushedRockTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.fillStyle = '#d4b383'; 
+  ctx.beginPath();
+  ctx.moveTo(35, 15); ctx.lineTo(95, 20); ctx.lineTo(115, 65);
+  ctx.lineTo(85, 115); ctx.lineTo(30, 105); ctx.lineTo(10, 55);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = '#edd1a6';
+  ctx.beginPath();
+  ctx.moveTo(35, 15); ctx.lineTo(95, 20); ctx.lineTo(70, 60); ctx.lineTo(25, 50);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = '#a88352';
+  ctx.beginPath();
+  ctx.moveTo(70, 60); ctx.lineTo(115, 65); ctx.lineTo(85, 115); ctx.lineTo(50, 90);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = '#7a5a30';
+  for(let i=0; i<18; i++) {
+    ctx.fillRect(20 + Math.random() * 80, 20 + Math.random() * 80, 3, 3);
+  }
+  return new THREE.CanvasTexture(canvas);
+}
+
+function gaussRndOffset(i) {
+  return ((i % 10) / 10 - 0.5) * (CW * 1.1);
+}
+
+function respawnParticle(i, beltOffsetZ) {
+  const idx = i * 3;
+  isSpilled[i] = 0;
+  positions[idx]     = FEED_X + (Math.random() - 0.5) * 0.4;
+  positions[idx + 1] = Y_TOP + 1.3 + Math.random() * 0.6;
+  
+  const gaussRnd = (Math.random() + Math.random() - 1) * 0.5;
+  positions[idx + 2] = gaussRnd * (CW * 1.2) + beltOffsetZ;
+  
+  vx[i] = 2.6 + Math.random() * 0.4;
+  vy[i] = -1.0;
+  vz[i] = 0;
+}
+
+function initSoilParticles() {
+  for (let i = 0; i < particleCount; i++) {
+    const idx = i * 3;
+    positions[idx]     = FEED_X + Math.random() * (HEAD_X - FEED_X);
+    positions[idx + 1] = Y_TOP + 0.08;
+    
+    const gaussRnd = (Math.random() + Math.random() - 1) * 0.5;
+    positions[idx + 2] = gaussRnd * (CW * 1.3);
+
+    scales[i] = Math.random() > 0.85 ? (0.35 + Math.random() * 0.25) : (0.12 + Math.random() * 0.18);
+    vx[i] = 2.6 + Math.random() * 0.4;
+    vy[i] = 0;
+    vz[i] = 0;
+    isSpilled[i] = 0;
+  }
+  soilGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  soilGeo.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
+}
+
+const soilMat = new THREE.PointsMaterial({
+  color: 0xdec197, 
+  size: 0.38, 
+  map: createCrushedRockTexture(),
+  transparent: true, 
+  opacity: 0.98, 
+  depthWrite: true, 
+  alphaTest: 0.2, 
+  blending: THREE.NormalBlending
+});
+
+const soilParticles = new THREE.Points(soilGeo, soilMat);
+gSoil.add(soilParticles);
+
+let showBelt = true;
+let isLoosenedMode = false;
+
+function rebuild() {
+  buildFrame();
+  buildIdlers(IDLER_THETA, ADJ, PITCH);
+  clear(gBelt);
+  const belt = buatSmoothSegmentedBeltLoop();
+  belt.position.y = ADJ * 0.012;
+  gBelt.add(belt);
+  buildPulley();
+  if (isLoosenedMode) {
+    updateTailLoosen();
+  } else {
+    updateTailTighten();
+  }
+  buildBottom(PITCH);
+  buildFeedChute();
+  buildSecondaryScraper();
+  gBelt.visible = showBelt;
+  gSoil.visible = showBelt;
+}
+
+let camA = 0.85, camE = 0.24, camR = 15;
+function updCam() {
+  const c = Math.cos(camE);
+  camera.position.set(Math.sin(camA) * c * camR, Math.sin(camE) * camR, Math.cos(camA) * c * camR);
+  camera.lookAt(0, -1.2, 0);
+}
+
+let drag = false, last = { x: 0, y: 0 };
+const el = container;
+
+el.addEventListener('mousedown', e => { drag = true; last = { x: e.clientX, y: e.clientY }; });
+addEventListener('mouseup', () => drag = false);
+addEventListener('mousemove', e => {
+  if(!drag) return;
+  camA += (e.clientX - last.x) * 0.006;
+  camE = Math.max(-0.25, Math.min(1.35, camE + (e.clientY - last.y) * 0.004));
+  last = { x: e.clientX, y: e.clientY }; 
+  updCam();
+});
+
+el.addEventListener('wheel', e => {
+  camR = Math.max(5, Math.min(45, camR + e.deltaY * 0.02)); 
+  updCam();
+}, { passive: true });
+
+let pinch = 0, r0 = 0;
+const dist = tt => Math.hypot(tt[0].clientX - tt[1].clientX, tt[0].clientY - tt[1].clientY);
+
+el.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) { drag = true; last = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }
+  else if (e.touches.length === 2) { drag = false; pinch = dist(e.touches); r0 = camR; }
+}, { passive: false });
+
+el.addEventListener('touchend', () => { drag = false; pinch = 0; });
+el.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && drag) {
+    camA += (e.touches[0].clientX - last.x) * 0.006;
+    camE = Math.max(-0.25, Math.min(1.35, camE + (e.touches[0].clientY - last.y) * 0.004));
+    last = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+    updCam();
+  } else if (e.touches.length === 2 && pinch > 0) {
+    camR = Math.max(5, Math.min(45, r0 * pinch / dist(e.touches))); 
+    updCam();
+  }
+}, { passive: false });
+
+const $ = id => document.getElementById(id);
+
+$('topLeft').oninput = e => {
+  topLeftVal = +e.target.value;
+  $('vTopLeft').textContent = topLeftVal;
+  buildIdlers(IDLER_THETA, ADJ, PITCH);
+};
+
+$('topRight').oninput = e => {
+  topRightVal = +e.target.value;
+  $('vTopRight').textContent = topRightVal;
+  buildIdlers(IDLER_THETA, ADJ, PITCH);
+};
+
+$('btmLeft').oninput = e => {
+  btmLeftVal = +e.target.value;
+  $('vBtmLeft').textContent = btmLeftVal;
+  buildBottom(PITCH);
+};
+
+$('btmRight').oninput = e => {
+  btmRightVal = +e.target.value;
+  $('vBtmRight').textContent = btmRightVal;
+  buildBottom(PITCH);
+};
+
+$('btnTightenLeft').onclick = () => { 
+  isLoosenedMode = false;
+  tailPivotSide = 'right'; 
+  tailSkewAngle += 1; 
+  tailShiftVal -= 0.03; 
+  tailSkewAngle = Math.max(-15, Math.min(15, tailSkewAngle));
+  tailShiftVal = Math.max(-0.25, Math.min(0.0, tailShiftVal));
+  $('vTailSkew').textContent = tailSkewAngle;
+  $('vTailShift').textContent = tailShiftVal.toFixed(2);
+  rebuild();
+};
+
+$('btnTightenRight').onclick = () => { 
+  isLoosenedMode = false;
+  tailPivotSide = 'left'; 
+  tailSkewAngle -= 1; 
+  tailShiftVal -= 0.03; 
+  tailSkewAngle = Math.max(-15, Math.min(15, tailSkewAngle));
+  tailShiftVal = Math.max(-0.25, Math.min(0.0, tailShiftVal));
+  $('vTailSkew').textContent = tailSkewAngle;
+  $('vTailShift').textContent = tailShiftVal.toFixed(2);
+  rebuild();
+};
+
+$('btnLoosenLeft').onclick = () => { 
+  isLoosenedMode = true;
+  tailPivotSide = 'right'; 
+  tailSkewAngle -= 1; 
+  tailShiftVal += 0.03; 
+  tailSkewAngle = Math.max(-15, Math.min(15, tailSkewAngle));
+  tailShiftVal = Math.max(0.0, Math.min(0.35, tailShiftVal));
+  $('vTailSkew').textContent = tailSkewAngle;
+  $('vTailShift').textContent = tailShiftVal.toFixed(2);
+  rebuild();
+};
+
+$('btnLoosenRight').onclick = () => { 
+  isLoosenedMode = true;
+  tailPivotSide = 'left'; 
+  tailSkewAngle += 1; 
+  tailShiftVal += 0.03; 
+  tailSkewAngle = Math.max(-15, Math.min(15, tailSkewAngle));
+  tailShiftVal = Math.max(0.0, Math.min(0.35, tailShiftVal));
+  $('vTailSkew').textContent = tailSkewAngle;
+  $('vTailShift').textContent = tailShiftVal.toFixed(2);
+  rebuild();
+};
+
+$('resetAdjustment').onclick = () => {
+  topLeftVal = 0; topRightVal = 0; btmLeftVal = 0; btmRightVal = 0; tailSkewAngle = 0; tailShiftVal = 0; tailPivotSide = 'left'; isLoosenedMode = false;
+  $('topLeft').value = 0; $('vTopLeft').textContent = '0';
+  $('topRight').value = 0; $('vTopRight').textContent = '0';
+  $('btmLeft').value = 0; $('vBtmLeft').textContent = '0';
+  $('btmRight').value = 0; $('vBtmRight').textContent = '0';
+  $('vTailSkew').textContent = '0';
+  $('vTailShift').textContent = '0.00';
+
+  buildIdlers(IDLER_THETA, ADJ, PITCH);
+  buildBottom(PITCH);
+  rebuild();
+};
+
+$('beltToggle').onclick = () => {
+  showBelt = !showBelt;
+  gBelt.visible = showBelt;
+  gSoil.visible = showBelt;
+  $('beltToggle').textContent = 'Belt Conveyor: ' + (showBelt ? 'TAMPIL' : 'SEMBUNYI');
+};
+
+$('reset').onclick = () => { camA = 0.85; camE = 0.24; camR = 15; updCam(); };
+
+addEventListener('resize', () => {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1); 
+
+  if (conveyor.userData.headPulley) conveyor.userData.headPulley.rotation.z -= dt * 2.5;
+  if (conveyor.userData.tailPulley) {
+    const core = conveyor.userData.tailPulley.getObjectByName("tailCore");
+    if (core) core.rotation.z -= dt * 2.5;
+  }
+
+  let currentBeltZ = 0;
+  if (gBelt.children[0]) {
+    const topYawEff = ((topRightVal - topLeftVal) * 0.015);
+    const btmYawEff = ((btmRightVal - btmLeftVal) * 0.015);
+    const tailYawRad = (tailSkewAngle * Math.PI) / 180;
+    const targetOffsetZ = (-topYawEff * 1.2) - (btmYawEff * 1.2) + (tailYawRad * 1.5); 
+    gBelt.children[0].position.z += (targetOffsetZ - gBelt.children[0].position.z) * 0.05;
+    currentBeltZ = gBelt.children[0].position.z;
+  }
+
+  const alertEl = $('statusAlert');
+  const mistrackMagnitude = Math.abs(currentBeltZ);
+  const isMistracking = mistrackMagnitude > 0.22;
+
+  if (isMistracking) {
+    if (!alertEl.classList.contains('alarm')) {
+      alertEl.classList.add('alarm');
+      alertEl.textContent = 'WARNING: BELT MISTRACKING!';
+      frameMeshes.forEach(m => m.material = matAlarm);
+    }
+  } else {
+    if (alertEl.classList.contains('alarm')) {
+      alertEl.classList.remove('alarm');
+      alertEl.textContent = 'BELT TRACKING: NORMAL';
+      frameMeshes.forEach(m => m.material = matWhite);
+    }
+  }
+
+  const gravity = 12.0;
+  const beltOffsetZ = currentBeltZ;
+  const halfBeltWidth = (W / 2) - 0.15; 
+
+  for (let i = 0; i < particleCount; i++) {
+    const idx = i * 3;
+
+    if (isSpilled[i] === 1) {
+      vy[i] -= gravity * dt;
+      positions[idx]     += vx[i] * dt * 0.6; 
+      positions[idx + 1] += vy[i] * dt;
+      positions[idx + 2] += vz[i] * dt;
+
+      if (positions[idx + 1] < -4.3) {
+        respawnParticle(i, beltOffsetZ);
+      }
+      continue;
+    }
+
+    if (positions[idx] >= FEED_X && positions[idx] < HEAD_X) {
+      positions[idx] += vx[i] * dt;
+      
+      const progress = (positions[idx] - FEED_X) / (HEAD_X - FEED_X);
+      positions[idx + 2] += ((gaussRndOffset(i) + beltOffsetZ * progress) - positions[idx + 2]) * 0.1;
+
+      const relativeZ = positions[idx + 2] - (beltOffsetZ * progress);
+      
+      if (isMistracking && (Math.abs(relativeZ) > halfBeltWidth || Math.random() < (mistrackMagnitude * 0.08))) {
+        isSpilled[i] = 1;
+        vy[i] = 0.5 + Math.random() * 0.8;
+        vz[i] = -Math.sign(currentBeltZ) * (1.2 + Math.random() * 1.8);
+        vx[i] = vx[i] * 0.5;
+        continue;
+      }
+
+      const distFromCenter = Math.abs(positions[idx + 2] - (beltOffsetZ * progress));
+      const moundHeight = Math.max(0, 0.12 - (distFromCenter * 0.08));
+      positions[idx + 1] = Y_TOP + 0.08 + (ADJ * 0.012) + moundHeight;
+      vy[i] = 0.2;
+    } 
+    else if (positions[idx] >= HEAD_X) {
+      vy[i] -= gravity * dt;
+      
+      positions[idx]     += vx[i] * dt * 0.95;
+      positions[idx + 1] += vy[i] * dt;
+      positions[idx + 2] += beltOffsetZ * dt * 0.2;
+
+      (positions[idx + 1] < -4.2 || positions[idx] > HEAD_X + 3.0) && respawnParticle(i, beltOffsetZ);
+    } else {
+      respawnParticle(i, beltOffsetZ);
+    }
+  }
+
+  soilParticles.geometry.attributes.position.needsUpdate = true;
+  renderer.render(scene, camera);
+}
+
+initSoilParticles();
+updCam();
+rebuild();
+animate();
+
+}
+</script>
+</body>
+</html>
+
